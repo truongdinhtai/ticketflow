@@ -1,0 +1,59 @@
+# Config served by Config Server to Notification Service.
+server:
+  port: ${SERVER_PORT:8083}
+
+spring:
+  datasource:
+    url: ${NOTIFICATION_DB_URL:jdbc:postgresql://localhost:5432/notification_db}
+    username: ${DB_USER:ticketflow}
+    password: ${DB_PASSWORD:ticketflow}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+  # --- Email (SMTP): points at MailHog locally / in docker-compose ---
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+          # Fail fast if SMTP is unreachable instead of hanging the consumer.
+          connectiontimeout: 3000
+          timeout: 3000
+          writetimeout: 3000
+
+  # --- Kafka consumer: reads BookingConfirmedEvent as JSON ---
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS:localhost:9092}
+    consumer:
+      group-id: notification-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # Wrap the JSON deserializer so a poison/unparseable message is handled by
+      # the error handler instead of blocking the partition forever.
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        spring.json.trusted.packages: com.ticketflow.common.event
+        # Always map to our event type, regardless of producer type headers.
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: com.ticketflow.common.event.BookingConfirmedEvent
+
+ticketflow:
+  mail:
+    from: no-reply@ticketflow.local
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

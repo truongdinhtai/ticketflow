@@ -32,6 +32,7 @@
         <module>api-gateway</module>
         <module>event-service</module>
         <module>booking-service</module>
+        <module>notification-service</module>
     </modules>
 
     <properties>

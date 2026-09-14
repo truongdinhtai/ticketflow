@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: notification-service
+  config:
+    import: ${CONFIG_IMPORT:optional:configserver:http://localhost:8888}
+
+# Datasource and Kafka consumer settings are centralised in
+# config-repo/notification-service.yml (served by Config Server).
