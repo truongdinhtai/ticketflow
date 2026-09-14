@@ -1,0 +1,8 @@
+spring:
+  application:
+    name: booking-service
+  config:
+    import: ${CONFIG_IMPORT:optional:configserver:http://localhost:8888}
+
+# Datasource, Kafka, Feign and Resilience4j settings are centralised in
+# config-repo/booking-service.yml (served by Config Server).

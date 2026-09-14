@@ -30,6 +30,8 @@
         <module>infra-config-server</module>
         <module>infra-discovery-server</module>
         <module>api-gateway</module>
+        <module>event-service</module>
+        <module>booking-service</module>
     </modules>
 
     <properties>

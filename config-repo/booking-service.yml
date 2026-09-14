@@ -1,0 +1,91 @@
+# Config served by Config Server to Booking Service.
+server:
+  port: ${SERVER_PORT:8082}
+
+spring:
+  datasource:
+    url: ${BOOKING_DB_URL:jdbc:postgresql://localhost:5432/booking_db}
+    username: ${DB_USER:ticketflow}
+    password: ${DB_PASSWORD:ticketflow}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+  # --- Kafka producer: publishes BookingConfirmedEvent as JSON ---
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      properties:
+        # Fail fast instead of blocking for 60s when no broker is reachable
+        # (e.g. running locally without Kafka). Publishing is async anyway.
+        max.block.ms: 5000
+        delivery.timeout.ms: 8000
+        request.timeout.ms: 4000
+
+  # --- Feign: connect/read timeouts so a slow Event Service trips the breaker ---
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connectTimeout: 2000
+            readTimeout: 3000
+        circuitbreaker:
+          # We drive resilience explicitly via @CircuitBreaker/@Retry in code,
+          # not Feign's built-in wrapper.
+          enabled: false
+
+# --- Resilience4j: instance "eventService" used by EventReservationGateway ---
+resilience4j:
+  retry:
+    instances:
+      eventService:
+        max-attempts: 3
+        wait-duration: 500ms
+        retry-exceptions:
+          - feign.RetryableException
+          - feign.FeignException$FeignServerException
+        ignore-exceptions:
+          - com.ticketflow.booking.exception.EventNotFoundException
+          - com.ticketflow.booking.exception.EventReservationRejectedException
+  circuitbreaker:
+    instances:
+      eventService:
+        register-health-indicator: true
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - feign.RetryableException
+          - feign.FeignException$FeignServerException
+        ignore-exceptions:
+          - com.ticketflow.booking.exception.EventNotFoundException
+          - com.ticketflow.booking.exception.EventReservationRejectedException
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # expose circuitbreakers endpoint + health details for the breaker
+        include: health,info,metrics,prometheus,circuitbreakers,circuitbreakerevents
+  health:
+    circuitbreakers:
+      enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
