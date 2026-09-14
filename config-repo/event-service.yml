@@ -1,0 +1,32 @@
+# Config served by Config Server to Event Service.
+server:
+  port: ${SERVER_PORT:8081}
+
+spring:
+  datasource:
+    url: ${EVENT_DB_URL:jdbc:postgresql://localhost:5432/event_db}
+    username: ${DB_USER:ticketflow}
+    password: ${DB_PASSWORD:ticketflow}
+  jpa:
+    hibernate:
+      # Flyway owns the schema; Hibernate only validates the mapping against it.
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+  batch:
+    # Do NOT auto-run the report job at startup; it is triggered on a schedule.
+    job:
+      enabled: false
+    jdbc:
+      # Let Spring Batch create its BATCH_* metadata tables on first run.
+      initialize-schema: always
+
+# OpenAPI / Swagger UI available at /swagger-ui.html
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
