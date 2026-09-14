@@ -1,0 +1,27 @@
+server:
+  port: ${SERVER_PORT:8888}
+
+spring:
+  application:
+    name: config-server
+  profiles:
+    # Serve plain files from the local filesystem instead of a git backend.
+    active: native
+  cloud:
+    config:
+      server:
+        native:
+          # Multiple locations so it works whether run from the repo root
+          # (mvn / IDE) or from a mounted path inside Docker (env override).
+          search-locations: ${CONFIG_REPO_LOCATION:file:./config-repo,file:../config-repo}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
