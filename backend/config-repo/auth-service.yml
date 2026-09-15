@@ -1,0 +1,23 @@
+# Config served by Config Server to Auth Service.
+server:
+  port: ${SERVER_PORT:8084}
+
+spring:
+  datasource:
+    url: ${AUTH_DB_URL:jdbc:postgresql://localhost:5432/auth_db}
+    username: ${DB_USER:ticketflow}
+    password: ${DB_PASSWORD:ticketflow}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

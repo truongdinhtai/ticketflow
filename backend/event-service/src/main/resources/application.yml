@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: event-service
+  config:
+    import: ${CONFIG_IMPORT:optional:configserver:http://localhost:8888}
+
+# NOTE: the datasource is NOT configured here. It is centralised in
+# config-repo/event-service.yml (served by Config Server) and overridable via
+# environment variables (EVENT_DB_URL / DB_USER / DB_PASSWORD) in docker-compose.
