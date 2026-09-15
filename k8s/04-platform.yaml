@@ -1,0 +1,83 @@
+# --- Config Server ---
+# Serves backend/config-repo. Create the ConfigMap that backs /config-repo with:
+#   kubectl -n ticketflow create configmap config-repo --from-file=backend/config-repo/
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: config-server
+  namespace: ticketflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: config-server }
+  template:
+    metadata:
+      labels: { app: config-server }
+    spec:
+      containers:
+        - name: config-server
+          image: ticketflow/config-server:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - { name: SPRING_PROFILES_ACTIVE, value: "native" }
+            - { name: CONFIG_REPO_LOCATION, value: "file:/config-repo" }
+          ports: [{ containerPort: 8888 }]
+          volumeMounts:
+            - { name: config-repo, mountPath: /config-repo }
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8888 }
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+      volumes:
+        - { name: config-repo, configMap: { name: config-repo } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: config-server
+  namespace: ticketflow
+spec:
+  selector: { app: config-server }
+  ports: [{ port: 8888, targetPort: 8888 }]
+---
+# --- Eureka discovery server ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discovery-server
+  namespace: ticketflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: discovery-server }
+  template:
+    metadata:
+      labels: { app: discovery-server }
+    spec:
+      containers:
+        - name: discovery-server
+          image: ticketflow/discovery-server:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: CONFIG_IMPORT
+              valueFrom: { configMapKeyRef: { name: ticketflow-config, key: CONFIG_IMPORT } }
+          ports: [{ containerPort: 8761 }]
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8761 }
+            initialDelaySeconds: 25
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: discovery-server
+  namespace: ticketflow
+spec:
+  selector: { app: discovery-server }
+  ports: [{ port: 8761, targetPort: 8761 }]

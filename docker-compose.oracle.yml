@@ -1,0 +1,48 @@
+# Overrides for a small (6 GB) Oracle Cloud A1 box.
+# Run WITHOUT the frontend container (it lives on Cloudflare Pages) and with
+# tight JVM heaps so all backend services fit in 6 GB. Combine with swap on the VM.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.oracle.yml \
+#     up -d --build --scale frontend=0
+#
+# Set CORS_ALLOWED_ORIGINS to your Pages URL before running (or export it).
+x-jvm: &jvm
+  restart: unless-stopped
+  environment:
+    JAVA_TOOL_OPTIONS: "-Xmx256m -XX:MaxMetaspaceSize=128m -Xss512k"
+
+services:
+  config-server:
+    restart: unless-stopped
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx192m -XX:MaxMetaspaceSize=128m"
+  discovery-server:
+    restart: unless-stopped
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx192m -XX:MaxMetaspaceSize=128m"
+  api-gateway:
+    restart: unless-stopped
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xmx256m -XX:MaxMetaspaceSize=128m -Xss512k"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
+  auth-service: { <<: *jvm }
+  event-service: { <<: *jvm }
+  booking-service: { <<: *jvm }
+  notification-service: { <<: *jvm }
+
+  # Cap Kafka's heap too (defaults to 1 GB).
+  kafka:
+    restart: unless-stopped
+    environment:
+      KAFKA_HEAP_OPTS: "-Xmx512m -Xms512m"
+  zookeeper:
+    restart: unless-stopped
+    environment:
+      KAFKA_HEAP_OPTS: "-Xmx256m -Xms256m"
+
+  event-db: { restart: unless-stopped }
+  booking-db: { restart: unless-stopped }
+  notification-db: { restart: unless-stopped }
+  auth-db: { restart: unless-stopped }
+  redis: { restart: unless-stopped }
+  mailpit: { restart: unless-stopped }

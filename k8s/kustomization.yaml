@@ -1,0 +1,33 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: ticketflow
+
+resources:
+  - 01-namespace-config.yaml
+  - 02-datastores.yaml
+  - 03-kafka.yaml
+  - 04-platform.yaml
+  - 05-app-services.yaml
+  - 06-edge.yaml
+  - 07-hpa-booking.yaml
+
+# Central image tags. Locally these are the images loaded into minikube.
+# On AWS, override newName to your ECR registry (e.g. via an overlay) and the
+# CI pipeline sets the tag per commit SHA.
+images:
+  - name: ticketflow/config-server
+    newTag: latest
+  - name: ticketflow/discovery-server
+    newTag: latest
+  - name: ticketflow/api-gateway
+    newTag: latest
+  - name: ticketflow/auth-service
+    newTag: latest
+  - name: ticketflow/event-service
+    newTag: latest
+  - name: ticketflow/booking-service
+    newTag: latest
+  - name: ticketflow/notification-service
+    newTag: latest
+  - name: ticketflow/frontend
+    newTag: latest

@@ -1,0 +1,174 @@
+# Auth / Event / Booking / Notification services. Each pulls shared config from
+# the ConfigMap and credentials from the Secret via envFrom (unused keys are
+# simply ignored by each service).
+# --- Auth Service ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: ticketflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: auth-service }
+  template:
+    metadata:
+      labels: { app: auth-service }
+    spec:
+      containers:
+        - name: auth-service
+          image: ticketflow/auth-service:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef: { name: ticketflow-config }
+            - secretRef: { name: ticketflow-secrets }
+          ports: [{ containerPort: 8084 }]
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: 8084 }
+            initialDelaySeconds: 40
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: 8084 }
+            initialDelaySeconds: 60
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 150m, memory: 384Mi }
+            limits: { cpu: 700m, memory: 640Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: ticketflow
+spec:
+  selector: { app: auth-service }
+  ports: [{ port: 8084, targetPort: 8084 }]
+---
+# --- Event Service ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: event-service
+  namespace: ticketflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: event-service }
+  template:
+    metadata:
+      labels: { app: event-service }
+    spec:
+      containers:
+        - name: event-service
+          image: ticketflow/event-service:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef: { name: ticketflow-config }
+            - secretRef: { name: ticketflow-secrets }
+          ports: [{ containerPort: 8081 }]
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: 8081 }
+            initialDelaySeconds: 40
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: 8081 }
+            initialDelaySeconds: 60
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 150m, memory: 384Mi }
+            limits: { cpu: 700m, memory: 640Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: event-service
+  namespace: ticketflow
+spec:
+  selector: { app: event-service }
+  ports: [{ port: 8081, targetPort: 8081 }]
+---
+# --- Booking Service (2 replicas; scaled by the HPA) ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: booking-service
+  namespace: ticketflow
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: booking-service }
+  template:
+    metadata:
+      labels: { app: booking-service }
+    spec:
+      containers:
+        - name: booking-service
+          image: ticketflow/booking-service:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef: { name: ticketflow-config }
+            - secretRef: { name: ticketflow-secrets }
+          ports: [{ containerPort: 8082 }]
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: 8082 }
+            initialDelaySeconds: 40
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: 8082 }
+            initialDelaySeconds: 60
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 200m, memory: 384Mi }
+            limits: { cpu: 1000m, memory: 640Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: booking-service
+  namespace: ticketflow
+spec:
+  selector: { app: booking-service }
+  ports: [{ port: 8082, targetPort: 8082 }]
+---
+# --- Notification Service ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: ticketflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: notification-service }
+  template:
+    metadata:
+      labels: { app: notification-service }
+    spec:
+      containers:
+        - name: notification-service
+          image: ticketflow/notification-service:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef: { name: ticketflow-config }
+            - secretRef: { name: ticketflow-secrets }
+          ports: [{ containerPort: 8083 }]
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: 8083 }
+            initialDelaySeconds: 40
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: 8083 }
+            initialDelaySeconds: 60
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 150m, memory: 384Mi }
+            limits: { cpu: 700m, memory: 640Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: ticketflow
+spec:
+  selector: { app: notification-service }
+  ports: [{ port: 8083, targetPort: 8083 }]
