@@ -18,6 +18,9 @@ x-service-env: &service-env
   CONFIG_IMPORT: optional:configserver:http://config-server:8888
   EUREKA_SERVER: http://discovery-server:8761/eureka/
   ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+  # JWT signing secret — auth-service signs, gateway verifies. The default is a
+  # DEV-ONLY value; production MUST set a strong JWT_SECRET (see .env.example).
+  JWT_SECRET: ${JWT_SECRET:-ZmFrZS1kZW1vLXNlY3JldC1jaGFuZ2UtbWUtaW4tcHJvZHVjdGlvbi0xMjM0NTY3OA}
 
 services:
   # ================= Infrastructure =================

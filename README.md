@@ -305,4 +305,5 @@ These are called out to show awareness rather than implemented:
 - **Saga / compensation** — if a reservation succeeds but the booking fails to persist, tickets could be left reserved. A real system would release them via a compensating action or an outbox + saga.
 - **Transactional outbox** — publishing to Kafka after a DB commit risks a lost event on crash; an outbox pattern makes it atomic.
 - **Separate repos & pipelines** — in production each service would have its own repository and CI/CD; a mono-repo is used here for reviewability.
-- **Secrets** — the demo uses plaintext local credentials; production would use a secrets manager and encrypted config.
+- **Secrets** — the committed `.env` holds dev-only defaults; all secrets (`JWT_SECRET`, `DB_PASSWORD`, SMTP creds) are overridable via the deploy environment (`.env.example` documents them, mail lives in git-ignored `.env.local`). A public deploy MUST set a strong `JWT_SECRET`. Production would go further with a real secrets manager and encrypted config-server backend.
+- **Auth scoping** — bookings are tied to the authenticated user: the gateway verifies the JWT and forwards `X-User-Email`, and Booking Service scopes all reads to that user (you can only list/fetch your own bookings).

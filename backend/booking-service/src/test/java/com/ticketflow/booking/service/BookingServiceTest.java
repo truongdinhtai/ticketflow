@@ -46,7 +46,7 @@ class BookingServiceTest {
     private BookingService bookingService;
 
     private static final CreateBookingRequest REQUEST =
-            new CreateBookingRequest(1L, "Alice", "alice@example.com", 2);
+            new CreateBookingRequest(1L, "Alice", 2);
 
     @Test
     void createBooking_reserves_persists_andPublishesEvent() {
@@ -56,7 +56,7 @@ class BookingServiceTest {
         // Repository returns the entity it was asked to save.
         when(bookingRepository.save(any(Booking.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        BookingResponse response = bookingService.createBooking(REQUEST);
+        BookingResponse response = bookingService.createBooking(REQUEST, "alice@example.com");
 
         // The reservation drove the booking's denormalised fields.
         assertThat(response.eventName()).isEqualTo("Spring Boot Live 2026");
@@ -82,7 +82,7 @@ class BookingServiceTest {
         when(eventReservationGateway.reserve(1L, 2))
                 .thenThrow(new EventReservationRejectedException("sold out"));
 
-        assertThatThrownBy(() -> bookingService.createBooking(REQUEST))
+        assertThatThrownBy(() -> bookingService.createBooking(REQUEST, "alice@example.com"))
                 .isInstanceOf(EventReservationRejectedException.class);
 
         // No booking saved and no event published when the reservation fails.
