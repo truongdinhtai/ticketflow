@@ -5,12 +5,22 @@ server:
 spring:
   cloud:
     gateway:
-      # Do NOT auto-create routes from every registered service; we declare
-      # them explicitly below for a predictable public API surface.
+      # CORS so the frontend (e.g. on Cloudflare Pages) can call this API from a
+      # different origin. No cookies are used (JWT travels in the Authorization
+      # header), so a wildcard origin is safe; tighten CORS_ALLOWED_ORIGINS in prod
+      # to e.g. https://*.pages.dev or your domain.
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns:
+              - "${CORS_ALLOWED_ORIGINS:*}"
+            allowedMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+            allowedHeaders: ["*"]
       discovery:
         locator:
           enabled: false
       routes:
+        # ---- Public API ----
         - id: auth-service
           uri: lb://auth-service
           predicates:
@@ -24,8 +34,50 @@ spring:
           predicates:
             - Path=/api/bookings/**
 
-# Notification Service is intentionally NOT routed: it is a Kafka consumer with
-# no public REST API.
+        # ---- Health dashboard: /health/<svc> -> that service's /actuator/health.
+        # Uses plain host:port (service DNS is reachable from the gateway in both
+        # Docker Compose and Kubernetes), so it works even for the non-Eureka
+        # infra services (config-server, discovery-server).
+        - id: health-gateway
+          uri: forward:/actuator/health
+          predicates:
+            - Path=/health/gateway
+        - id: health-config
+          uri: http://config-server:8888
+          predicates:
+            - Path=/health/config
+          filters:
+            - "RewritePath=/health/config,/actuator/health"
+        - id: health-discovery
+          uri: http://discovery-server:8761
+          predicates:
+            - Path=/health/discovery
+          filters:
+            - "RewritePath=/health/discovery,/actuator/health"
+        - id: health-auth
+          uri: http://auth-service:8084
+          predicates:
+            - Path=/health/auth
+          filters:
+            - "RewritePath=/health/auth,/actuator/health"
+        - id: health-event
+          uri: http://event-service:8081
+          predicates:
+            - Path=/health/event
+          filters:
+            - "RewritePath=/health/event,/actuator/health"
+        - id: health-booking
+          uri: http://booking-service:8082
+          predicates:
+            - Path=/health/booking
+          filters:
+            - "RewritePath=/health/booking,/actuator/health"
+        - id: health-notification
+          uri: http://notification-service:8083
+          predicates:
+            - Path=/health/notification
+          filters:
+            - "RewritePath=/health/notification,/actuator/health"
 
 management:
   endpoints:

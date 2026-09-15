@@ -1,0 +1,118 @@
+name: CI/CD
+
+# CI on every PR and push to main; CD (build → ECR → deploy) only on push to main.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Needed for GitHub OIDC -> AWS (no long-lived access keys stored in the repo).
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}          # repo Variable, e.g. us-east-1
+  ECR_NAMESPACE: ticketflow                    # ECR repos are ticketflow/<service>
+
+jobs:
+  # ------------------------------------------------------------------ #
+  # 1. Build + run all tests (unit via Surefire, integration via        #
+  #    Failsafe/Testcontainers — GitHub runners provide a Docker daemon).#
+  # ------------------------------------------------------------------ #
+  test:
+    name: Build & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Unit + integration tests
+        working-directory: backend
+        run: ./mvnw -B verify        # runs *Test (Surefire) and *IT (Failsafe/Testcontainers)
+
+  # ------------------------------------------------------------------ #
+  # 2. Build one Docker image per service, tag with the commit SHA,     #
+  #    and push to Amazon ECR. Runs only on push to main.               #
+  # ------------------------------------------------------------------ #
+  build-and-push:
+    name: Build & push images
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { service: config-server,       context: ./backend,  dockerfile: infra-config-server/Dockerfile }
+          - { service: discovery-server,     context: ./backend,  dockerfile: infra-discovery-server/Dockerfile }
+          - { service: api-gateway,          context: ./backend,  dockerfile: api-gateway/Dockerfile }
+          - { service: auth-service,         context: ./backend,  dockerfile: auth-service/Dockerfile }
+          - { service: event-service,        context: ./backend,  dockerfile: event-service/Dockerfile }
+          - { service: booking-service,      context: ./backend,  dockerfile: booking-service/Dockerfile }
+          - { service: notification-service, context: ./backend,  dockerfile: notification-service/Dockerfile }
+          - { service: frontend,             context: ./frontend, dockerfile: Dockerfile }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}   # IAM role trusting GitHub OIDC
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & push ${{ matrix.service }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.context }}/${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_NAMESPACE }}/${{ matrix.service }}:${{ github.sha }}
+            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_NAMESPACE }}/${{ matrix.service }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ------------------------------------------------------------------ #
+  # 3. Deploy the new image tags to the k3s cluster on EC2 via SSH.     #
+  #    (Single-node k3s — we run kubectl on the node rather than        #
+  #    exposing the API server publicly.)                               #
+  # ------------------------------------------------------------------ #
+  deploy:
+    name: Deploy to k3s
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Roll out new images on the cluster
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}       # EC2 public IP/DNS (Terraform output)
+          username: ${{ secrets.DEPLOY_USER }}   # e.g. ubuntu
+          key: ${{ secrets.DEPLOY_SSH_KEY }}     # private key for the EC2 node
+          envs: GITHUB_SHA
+          script: |
+            set -euo pipefail
+            REGISTRY="${{ secrets.ECR_REGISTRY }}"     # <acct>.dkr.ecr.<region>.amazonaws.com
+            NS=ticketflow
+            for svc in config-server discovery-server api-gateway auth-service \
+                       event-service booking-service notification-service frontend; do
+              kubectl -n "$NS" set image "deployment/$svc" \
+                "$svc=$REGISTRY/ticketflow/$svc:${GITHUB_SHA}" --record || true
+            done
+            for svc in api-gateway auth-service event-service booking-service notification-service; do
+              kubectl -n "$NS" rollout status "deployment/$svc" --timeout=180s
+            done

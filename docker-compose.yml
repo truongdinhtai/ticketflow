@@ -203,9 +203,11 @@ services:
     ports:
       - "9411:9411"
 
-  mailhog:
-    image: mailhog/mailhog:v1.0.1
-    container_name: mailhog
+  # Mailpit (MailHog replacement): captures emails, has a web UI, and — unlike
+  # MailHog — ships an arm64 image, so it runs on Oracle Cloud's ARM A1 free tier.
+  mailpit:
+    image: axllent/mailpit:v1.20
+    container_name: mailpit
     ports:
       - "1025:1025"                          # SMTP
       - "8025:8025"                          # web UI
@@ -299,7 +301,7 @@ services:
       KAFKA_BROKERS: kafka:29092
       # Defaults target the MailHog container; override via .env.local (loaded
       # with `--env-file .env --env-file .env.local`) to send real email.
-      MAIL_HOST: ${MAIL_HOST:-mailhog}
+      MAIL_HOST: ${MAIL_HOST:-mailpit}
       MAIL_PORT: ${MAIL_PORT:-1025}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
@@ -317,7 +319,7 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
-      mailhog:
+      mailpit:
         condition: service_started
 
   # ================= Frontend =================

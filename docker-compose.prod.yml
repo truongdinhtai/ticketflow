@@ -1,0 +1,35 @@
+# Production overrides for the always-on backend (e.g. Oracle Cloud A1).
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Adds: auto-restart (survives crashes / VM reboots) and a JVM heap cap so the
+# eight Spring services share RAM predictably. Set CORS_ALLOWED_ORIGINS to your
+# Cloudflare Pages URL so the browser is allowed to call this backend.
+x-restart: &restart
+  restart: unless-stopped
+
+x-java: &java
+  restart: unless-stopped
+  environment:
+    JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60"
+
+services:
+  config-server: { <<: *java }
+  discovery-server: { <<: *java }
+  api-gateway:
+    <<: *java
+    environment:
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://*.pages.dev}
+  auth-service: { <<: *java }
+  event-service: { <<: *java }
+  booking-service: { <<: *java }
+  notification-service: { <<: *java }
+
+  event-db: { <<: *restart }
+  booking-db: { <<: *restart }
+  notification-db: { <<: *restart }
+  auth-db: { <<: *restart }
+  redis: { <<: *restart }
+  zookeeper: { <<: *restart }
+  kafka: { <<: *restart }
+  mailpit: { <<: *restart }

@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ticketflow
+---
+# Non-secret configuration shared by the Spring Boot services. In-cluster DNS
+# names (config-server, discovery-server, kafka, redis, postgres) resolve to the
+# Services defined in the other manifests.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ticketflow-config
+  namespace: ticketflow
+data:
+  SPRING_PROFILES_ACTIVE: "docker"                 # JSON logging
+  CONFIG_IMPORT: "optional:configserver:http://config-server:8888"
+  EUREKA_SERVER: "http://discovery-server:8761/eureka/"
+  KAFKA_BROKERS: "kafka:9092"
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  MAIL_HOST: "mailpit"
+  MAIL_PORT: "1025"
+  # Per-service databases. For AWS RDS, point these at the RDS endpoint
+  # (one instance, four databases) — change only the host part.
+  EVENT_DB_URL: "jdbc:postgresql://postgres:5432/event_db"
+  BOOKING_DB_URL: "jdbc:postgresql://postgres:5432/booking_db"
+  NOTIFICATION_DB_URL: "jdbc:postgresql://postgres:5432/notification_db"
+  AUTH_DB_URL: "jdbc:postgresql://postgres:5432/auth_db"
+---
+# Secrets. THESE ARE DEMO VALUES — replace before any real deployment
+# (kubectl create secret / SealedSecrets / External Secrets Operator).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ticketflow-secrets
+  namespace: ticketflow
+type: Opaque
+stringData:
+  DB_USER: "ticketflow"
+  DB_PASSWORD: "change-me-in-production"
+  JWT_SECRET: "change-me-generate-with-openssl-rand-base64-48"
