@@ -7,6 +7,15 @@ spring:
     url: ${BOOKING_DB_URL:jdbc:postgresql://localhost:5432/booking_db}
     username: ${DB_USER:ticketflow}
     password: ${DB_PASSWORD:ticketflow}
+    # --- HikariCP connection pool tuning (see PERFORMANCE.md for rationale) ---
+    hikari:
+      pool-name: booking-hikari
+      maximum-pool-size: ${DB_POOL_MAX:30}      # ceiling of concurrent DB connections
+      minimum-idle: ${DB_POOL_MIN:10}           # warm connections kept ready
+      connection-timeout: 3000                  # fail fast (ms) instead of piling up under load
+      idle-timeout: 300000                      # 5 min — reclaim idle connections
+      max-lifetime: 1200000                     # 20 min — recycle below DB/infra timeouts
+      keepalive-time: 120000                    # probe idle connections so they don't go stale
   jpa:
     hibernate:
       ddl-auto: validate
@@ -17,6 +26,15 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+
+  # --- Cache: Spring Cache over Redis (toggle with CACHE_TYPE=redis|none) ---
+  cache:
+    type: ${CACHE_TYPE:redis}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000
 
   # --- Kafka producer: publishes BookingConfirmedEvent as JSON ---
   kafka:

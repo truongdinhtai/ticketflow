@@ -1,7 +1,9 @@
 package com.ticketflow.booking.controller;
 
+import com.ticketflow.booking.dto.AvailabilityResponse;
 import com.ticketflow.booking.dto.BookingResponse;
 import com.ticketflow.booking.dto.CreateBookingRequest;
+import com.ticketflow.booking.service.AvailabilityService;
 import com.ticketflow.booking.service.BookingService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,9 +27,17 @@ import java.net.URI;
 public class BookingController {
 
     private final BookingService bookingService;
+    private final AvailabilityService availabilityService;
 
-    public BookingController(BookingService bookingService) {
+    public BookingController(BookingService bookingService, AvailabilityService availabilityService) {
         this.bookingService = bookingService;
+        this.availabilityService = availabilityService;
+    }
+
+    @GetMapping("/availability/{eventId}")
+    @Operation(summary = "Available seats for an event (Redis cache-aside)")
+    public AvailabilityResponse availability(@PathVariable Long eventId) {
+        return availabilityService.getAvailableSeats(eventId);
     }
 
     @PostMapping

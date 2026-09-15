@@ -39,6 +39,8 @@ class BookingServiceTest {
     private BookingRepository bookingRepository;
     @Mock
     private BookingEventPublisher eventPublisher;
+    @Mock
+    private AvailabilityService availabilityService;
 
     @InjectMocks
     private BookingService bookingService;

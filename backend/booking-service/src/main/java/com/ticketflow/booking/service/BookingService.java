@@ -27,13 +27,16 @@ public class BookingService {
     private final EventReservationGateway eventReservationGateway;
     private final BookingRepository bookingRepository;
     private final BookingEventPublisher eventPublisher;
+    private final AvailabilityService availabilityService;
 
     public BookingService(EventReservationGateway eventReservationGateway,
                           BookingRepository bookingRepository,
-                          BookingEventPublisher eventPublisher) {
+                          BookingEventPublisher eventPublisher,
+                          AvailabilityService availabilityService) {
         this.eventReservationGateway = eventReservationGateway;
         this.bookingRepository = bookingRepository;
         this.eventPublisher = eventPublisher;
+        this.availabilityService = availabilityService;
     }
 
     /**
@@ -56,6 +59,10 @@ public class BookingService {
                 eventReservationGateway.reserve(request.eventId(), request.quantity());
 
         Booking booking = persist(request, reservation);
+
+        // Availability changed → invalidate the cached seat count for this event
+        // so the next availability read repopulates with a fresh value.
+        availabilityService.evict(request.eventId());
 
         eventPublisher.publishBookingConfirmed(new BookingConfirmedEvent(
                 booking.getId(),

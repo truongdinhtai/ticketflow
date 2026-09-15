@@ -181,6 +181,18 @@ services:
       retries: 15
       start_period: 20s
 
+  # ================= Cache =================
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   # ================= Observability & mail =================
   zipkin:
     image: openzipkin/zipkin:3
@@ -250,6 +262,12 @@ services:
       DB_USER: ${DB_USER:-ticketflow}
       DB_PASSWORD: ${DB_PASSWORD:-ticketflow}
       KAFKA_BROKERS: kafka:29092
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      # Cache toggle for the before/after load test: redis (default) or none.
+      CACHE_TYPE: ${CACHE_TYPE:-redis}
+      # HikariCP pool size (overridable for pool tuning benchmarks).
+      DB_POOL_MAX: ${DB_POOL_MAX:-30}
     ports:
       - "8082:8082"
     depends_on:
@@ -260,6 +278,8 @@ services:
       booking-db:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   notification-service:

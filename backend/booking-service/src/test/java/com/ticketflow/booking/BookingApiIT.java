@@ -52,7 +52,8 @@ import static org.mockito.Mockito.when;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "spring.cloud.config.enabled=false",
         "eureka.client.enabled=false",
-        "spring.cloud.discovery.enabled=false"
+        "spring.cloud.discovery.enabled=false",
+        "spring.cache.type=none"
 })
 @Testcontainers
 @EmbeddedKafka(partitions = 1, topics = {KafkaTopics.BOOKING_CONFIRMED})

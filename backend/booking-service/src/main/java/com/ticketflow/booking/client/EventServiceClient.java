@@ -1,6 +1,7 @@
 package com.ticketflow.booking.client;
 
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -17,4 +18,8 @@ public interface EventServiceClient {
     @PostMapping("/api/events/{eventId}/reservations")
     ReservationResponse reserve(@PathVariable("eventId") Long eventId,
                                 @RequestBody ReservationRequest request);
+
+    /** Read an event (used to look up current available seats). */
+    @GetMapping("/api/events/{eventId}")
+    EventView getEvent(@PathVariable("eventId") Long eventId);
 }
