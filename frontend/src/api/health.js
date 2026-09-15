@@ -1,8 +1,9 @@
-import axios from 'axios';
+import client from './client';
 
-// The services we surface on the health dashboard. Each is reached at
-// /health/<key>, proxied to that service's /actuator/health (see vite.config.js
-// and nginx.conf) so the browser makes only same-origin calls.
+// Services shown on the health dashboard. Each is reached at /health/<key>,
+// which the API Gateway routes to that service's /actuator/health. Going through
+// the gateway means the dashboard works both same-origin (Docker/K8s, proxied by
+// nginx) and cross-origin (frontend on Cloudflare Pages -> gateway with CORS).
 export const SERVICES = [
   { key: 'gateway', label: 'API Gateway' },
   { key: 'config', label: 'Config Server' },
@@ -13,16 +14,12 @@ export const SERVICES = [
   { key: 'notification', label: 'Notification Service' },
 ];
 
-// Plain axios (no auth header needed) with a short timeout so a down service
-// resolves quickly as DOWN rather than hanging the dashboard.
-const probe = axios.create({ timeout: 4000 });
-
 export async function fetchHealth(key) {
   try {
-    const { data } = await probe.get(`/health/${key}`);
+    const { data } = await client.get(`/health/${key}`, { timeout: 4000 });
     return { key, status: data?.status || 'UNKNOWN' };
   } catch (e) {
-    // Actuator returns 503 with a body when DOWN — still useful.
+    // A down service surfaces as 502/503 (with an actuator body when available).
     const status = e?.response?.data?.status;
     return { key, status: status || 'DOWN' };
   }

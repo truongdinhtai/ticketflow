@@ -44,6 +44,10 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        // Let CORS preflight through — it carries no Authorization header.
+        if (exchange.getRequest().getMethod() == org.springframework.http.HttpMethod.OPTIONS) {
+            return chain.filter(exchange);
+        }
         String path = exchange.getRequest().getURI().getPath();
         if (!isProtected(path)) {
             return chain.filter(exchange);

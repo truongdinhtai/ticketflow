@@ -28,7 +28,6 @@ export default function EventDetailPage() {
       createBooking({
         eventId: Number(id),
         customerName: user.displayName,
-        customerEmail: user.email,
         quantity,
       }),
     onSuccess: (data) => {

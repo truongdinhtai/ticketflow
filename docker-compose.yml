@@ -18,6 +18,9 @@ x-service-env: &service-env
   CONFIG_IMPORT: optional:configserver:http://config-server:8888
   EUREKA_SERVER: http://discovery-server:8761/eureka/
   ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+  # JWT signing secret — auth-service signs, gateway verifies. The default is a
+  # DEV-ONLY value; production MUST set a strong JWT_SECRET (see .env.example).
+  JWT_SECRET: ${JWT_SECRET:-ZmFrZS1kZW1vLXNlY3JldC1jaGFuZ2UtbWUtaW4tcHJvZHVjdGlvbi0xMjM0NTY3OA}
 
 services:
   # ================= Infrastructure =================
@@ -181,6 +184,18 @@ services:
       retries: 15
       start_period: 20s
 
+  # ================= Cache =================
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   # ================= Observability & mail =================
   zipkin:
     image: openzipkin/zipkin:3
@@ -188,9 +203,11 @@ services:
     ports:
       - "9411:9411"
 
-  mailhog:
-    image: mailhog/mailhog:v1.0.1
-    container_name: mailhog
+  # Mailpit (MailHog replacement): captures emails, has a web UI, and — unlike
+  # MailHog — ships an arm64 image, so it runs on Oracle Cloud's ARM A1 free tier.
+  mailpit:
+    image: axllent/mailpit:v1.20
+    container_name: mailpit
     ports:
       - "1025:1025"                          # SMTP
       - "8025:8025"                          # web UI
@@ -250,6 +267,12 @@ services:
       DB_USER: ${DB_USER:-ticketflow}
       DB_PASSWORD: ${DB_PASSWORD:-ticketflow}
       KAFKA_BROKERS: kafka:29092
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      # Cache toggle for the before/after load test: redis (default) or none.
+      CACHE_TYPE: ${CACHE_TYPE:-redis}
+      # HikariCP pool size (overridable for pool tuning benchmarks).
+      DB_POOL_MAX: ${DB_POOL_MAX:-30}
     ports:
       - "8082:8082"
     depends_on:
@@ -260,6 +283,8 @@ services:
       booking-db:
         condition: service_healthy
       kafka:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   notification-service:
@@ -276,7 +301,7 @@ services:
       KAFKA_BROKERS: kafka:29092
       # Defaults target the MailHog container; override via .env.local (loaded
       # with `--env-file .env --env-file .env.local`) to send real email.
-      MAIL_HOST: ${MAIL_HOST:-mailhog}
+      MAIL_HOST: ${MAIL_HOST:-mailpit}
       MAIL_PORT: ${MAIL_PORT:-1025}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
@@ -294,7 +319,7 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
-      mailhog:
+      mailpit:
         condition: service_started
 
   # ================= Frontend =================

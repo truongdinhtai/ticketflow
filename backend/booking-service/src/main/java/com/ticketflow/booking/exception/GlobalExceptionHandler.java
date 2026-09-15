@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.List;
@@ -40,6 +41,13 @@ public class GlobalExceptionHandler {
                                                               HttpServletRequest request) {
         // Degraded upstream dependency: 503 tells the caller to retry later.
         return build(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage(), request);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiErrorResponse> handleResponseStatus(ResponseStatusException ex,
+                                                                 HttpServletRequest request) {
+        HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
+        return build(status, ex.getReason() != null ? ex.getReason() : status.getReasonPhrase(), request);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

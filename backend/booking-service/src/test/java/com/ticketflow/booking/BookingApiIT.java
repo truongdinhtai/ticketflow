@@ -17,6 +17,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
@@ -52,7 +55,8 @@ import static org.mockito.Mockito.when;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "spring.cloud.config.enabled=false",
         "eureka.client.enabled=false",
-        "spring.cloud.discovery.enabled=false"
+        "spring.cloud.discovery.enabled=false",
+        "spring.cache.type=none"
 })
 @Testcontainers
 @EmbeddedKafka(partitions = 1, topics = {KafkaTopics.BOOKING_CONFIRMED})
@@ -87,9 +91,12 @@ class BookingApiIT {
                 .thenReturn(new ReservationResponse(1L, "Spring Boot Live 2026", 2,
                         new BigDecimal("99.00"), new BigDecimal("198.00")));
 
-        var request = new CreateBookingRequest(1L, "Alice", "alice@example.com", 2);
-        ResponseEntity<BookingResponse> response =
-                rest.postForEntity("/api/bookings", request, BookingResponse.class);
+        var request = new CreateBookingRequest(1L, "Alice", 2);
+        // The gateway normally injects X-User-Email from the JWT; supply it here.
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-User-Email", "alice@example.com");
+        ResponseEntity<BookingResponse> response = rest.exchange(
+                "/api/bookings", HttpMethod.POST, new HttpEntity<>(request, headers), BookingResponse.class);
 
         // 1) HTTP + persistence
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
